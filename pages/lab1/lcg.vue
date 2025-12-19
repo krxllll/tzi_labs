@@ -1,11 +1,26 @@
 <script setup lang="ts">
-const { run, result, period, file, loading, error } = useLcg()
+import Tabs from '~/components/Tabs.vue'
+import { saveUrlAs } from "~/utils/saveAs";
+
+const tabs = [
+  { label: 'Лінійний конгруентний генератор', to: '/lab1/lcg' },
+  { label: 'Тест Чезаро', to: '/lab1/test-cesaro' },
+]
+
+const { run, result, period, file, fileName, loading, error } = useLcg()
 
 const count = ref<number>(1000)
-const saveToFile = ref<boolean>(false)
+const m = ref<number | undefined>(undefined)
+const a = ref<number | undefined>(undefined)
+const c = ref<number | undefined>(undefined)
+const seed = ref<number | undefined>(undefined)
 
 async function onSubmit() {
-  await run(count.value, saveToFile.value)
+  await run(count.value, m.value, a.value, c.value, seed.value)
+}
+
+async function onDownload() {
+  await saveUrlAs(file.value, fileName.value)
 }
 </script>
 
@@ -14,14 +29,27 @@ async function onSubmit() {
     <h1 class="text-4xl font-bold">
       Лабораторна робота 1: Лінійний конгруентний генератор псевдовипадкових чисел
     </h1>
-    <form @submit.prevent="onSubmit" class="mt-8 space-y-4">
+    <Tabs :tabs="tabs" />
+    <form class="mt-8 space-y-4" @submit.prevent="onSubmit">
       <div class="space-x-2">
         <label for="count">Довжина послідовності</label>
-        <input id="count" type="number" class="text-gray-800 outline-gray-800 px-2" v-model.number="count" min="1" required>
+        <input id="count" v-model.number="count" type="number" class="text-gray-800 outline-gray-800 px-2" min="1" required>
       </div>
       <div class="space-x-2">
-        <label for="file">Зберегти у файл?</label>
-        <input id="file" type="checkbox" v-model="saveToFile">
+        <label for="m">Модуль</label>
+        <input id="m" v-model.number="m" type="number" class="text-gray-800 outline-gray-800 px-2" min="1">
+      </div>
+      <div class="space-x-2">
+        <label for="a">Множник</label>
+        <input id="a" v-model.number="a" type="number" class="text-gray-800 outline-gray-800 px-2" min="1">
+      </div>
+      <div class="space-x-2">
+        <label for="c">Приріст</label>
+        <input id="c" v-model.number="c" type="number" class="text-gray-800 outline-gray-800 px-2" min="0">
+      </div>
+      <div class="space-x-2">
+        <label for="seed">Початкове значення</label>
+        <input id="seed" v-model.number="seed" type="number" class="text-gray-800 outline-gray-800 px-2" min="0">
       </div>
       <button
           type="submit"
@@ -32,20 +60,18 @@ async function onSubmit() {
       </button>
     </form>
     <p v-if="error" class="mt-8 text-red-600">Помилка: {{ error }}</p>
-    <div class="mt-8 space-y-4" v-if="result.length">
+    <div v-if="result.length" class="mt-8 space-y-4">
       <h2 class="text-2xl font-semibold">Згенерована послідовність:</h2>
+      <p>Визначений період генератора: {{ period }}</p>
+      <button class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-800" @click="onDownload">
+        Зберегти у файл
+      </button>
       <div>
-        <p class="mb-2">Перші {{ Math.min(result.length, 20) }} значень:</p>
         <code class="block whitespace-pre-wrap break-all text-sm">
-          {{ result.slice(0, 20).join(', ') }}
+          {{ result.slice().join(', ') }}
         </code>
       </div>
-      <p>Визначений період генератора: {{ period }}</p>
-      <div v-if="file">
-        Файл: <NuxtLink :to="file" target="_blank" class="text-blue-400 underline" download>{{ file }}</NuxtLink>
-      </div>
     </div>
-    <NuxtLink to="test-cesaro" class="mt-8 block text-blue-400 underline">Перейти до тесту Чезаро</NuxtLink>
   </main>
 </template>
 

@@ -1,5 +1,12 @@
 <script setup lang="ts">
+import Tabs from "~/components/Tabs.vue";
+
 const { run, data, loading, error } = useCesaro()
+
+const tabs = [
+  { label: 'Лінійний конгруентний генератор', to: '/lab1/lcg' },
+  { label: 'Тест Чезаро', to: '/lab1/test-cesaro' },
+]
 
 const pairs = ref(100000)
 const seed = ref(1)
@@ -14,14 +21,15 @@ async function onSubmit() {
     <h1 class="text-4xl font-bold">
       Лабораторна робота 1: Тест Чезаро
     </h1>
-    <form @submit.prevent="onSubmit" class="mt-8 space-y-4">
+    <Tabs :tabs="tabs" />
+    <form class="mt-8 space-y-4" @submit.prevent="onSubmit">
       <div class="space-x-2">
         <label for="pairs">Кількість пар</label>
-        <input id="pairs" type="number" class="text-gray-800 outline-gray-800 px-2" v-model.number="pairs" min="1" required>
+        <input id="pairs" v-model.number="pairs" type="number" class="text-gray-800 outline-gray-800 px-2" min="1" required>
       </div>
       <div class="space-x-2">
         <label for="seed">Затравка для Лемера (опц.)</label>
-        <input id="seed" type="number" class="text-gray-800 outline-gray-800 px-2" v-model.number="seed" min="1" required>
+        <input id="seed" v-model.number="seed" type="number" class="text-gray-800 outline-gray-800 px-2" min="1" required>
       </div>
       <button
           type="submit"
@@ -32,7 +40,7 @@ async function onSubmit() {
       </button>
     </form>
     <p v-if="error" class="mt-8 text-red-600">Помилка: {{ error }}</p>
-    <div class="mt-8 space-y-4" v-if="data">
+    <div v-if="data" class="mt-8 space-y-4">
       <h2 class="text-2xl font-semibold">Результати (pairs = {{ data.pairs }})</h2>
       <table class="text-sm border-collapse">
         <thead><tr><th class="px-2">Генератор</th><th class="px-2">π (оцінка)</th><th class="px-2">P(gcd=1)</th><th class="px-2">coprime/total</th></tr></thead>
@@ -43,7 +51,6 @@ async function onSubmit() {
         </tbody>
       </table>
     </div>
-    <NuxtLink to="lcg" class="mt-8 block text-blue-400 underline">Назад до ГПВЧ</NuxtLink>
   </main>
 </template>
 

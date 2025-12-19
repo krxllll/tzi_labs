@@ -13,6 +13,11 @@
           Лабораторна робота 1: Лінійний конгруентний генератор
         </NuxtLink>
       </li>
+      <li>
+        <NuxtLink to="/lab2/md5-text" class="text-blue-400 hover:underline">
+          Лабораторна робота 2: MD5 (RFC 1321)
+        </NuxtLink>
+      </li>
     </ul>
   </main>
 </template>
