@@ -1,77 +1,76 @@
-import Busboy from 'busboy'
-import { MD5 } from '~/lib/md5'
-import { writeFile, mkdir } from 'node:fs/promises'
-import { join, basename } from 'node:path'
+import { runMultipartFiles } from '~/server/utils/multipart'
+import { MD5 } from '~/server/lib/md5'
+import { mkdir, writeFile } from 'node:fs/promises'
+import { basename, join } from 'node:path'
+import { sanitizeBaseName } from '~/server/utils/sanitizeBaseName'
 
 function extractMd5Hex(text: string): string | null {
     const m = text.match(/[a-fA-F0-9]{32}/)
     return m ? m[0].toLowerCase() : null
 }
 
-function sanitizeBaseName(name: string) {
-    const cleaned = name
-        .trim()
-        .replace(/[/\\?%*:|"<>]/g, '_')
-        .replace(/\s+/g, '_')
-    return cleaned.replace(/\.(md5|txt)$/i, '') || 'verify'
+function hashStreamMd5(stream: NodeJS.ReadableStream) {
+    const md5 = new MD5()
+    let sizeBytes = 0
+
+    return new Promise<{ hash: string; sizeBytes: number }>((resolve, reject) => {
+        stream.on('data', (chunk: Buffer) => {
+            sizeBytes += chunk.length
+            md5.update(chunk)
+        })
+        stream.on('error', reject)
+        stream.on('end', () => resolve({ hash: md5.digestHex(), sizeBytes }))
+    })
+}
+
+function readTextStream(stream: NodeJS.ReadableStream) {
+    let text = ''
+    return new Promise<string>((resolve, reject) => {
+        ;(stream as any).setEncoding?.('utf8')
+        stream.on('data', (chunk: string | Buffer) => {
+            text += typeof chunk === 'string' ? chunk : chunk.toString('utf8')
+        })
+        stream.on('error', reject)
+        stream.on('end', () => resolve(text))
+    })
 }
 
 export default defineEventHandler(async (event) => {
     const req = event.node.req
-    const contentType = req.headers['content-type'] || ''
-    if (!contentType.includes('multipart/form-data')) {
-        throw createError({ statusCode: 400, statusMessage: 'Expected multipart/form-data' })
-    }
 
-    const dir = join(process.cwd(), 'public', 'exports')
-    await mkdir(dir, { recursive: true })
+    return await runMultipartFiles(req, {
+        requiredFiles: ['file', 'md5'],
+        start: async ({ files }) => {
+            const dir = join(process.cwd(), 'public', 'exports')
+            await mkdir(dir, {recursive: true})
 
-    const bb = Busboy({ headers: req.headers })
+            const target = files['file']
+            const md5f = files['md5']
 
-    let targetName = 'file'
-    let md5FileName = 'hash.md5'
-    let sizeBytes = 0
-
-    const md5 = new MD5()
-    let md5Text = ''
-
-    const done = new Promise<any>((resolve, reject) => {
-        bb.on('file', (field, fileStream, info) => {
-            if (field === 'file') {
-                targetName = info?.filename || 'file'
-                fileStream.on('data', (chunk: Buffer) => {
-                    sizeBytes += chunk.length
-                    md5.update(chunk)
-                })
-                fileStream.on('error', reject)
-            } else if (field === 'md5') {
-                md5FileName = info?.filename || 'hash.md5'
-                fileStream.setEncoding('utf8')
-                fileStream.on('data', (chunk: string) => { md5Text += chunk })
-                fileStream.on('error', reject)
-            } else {
-                fileStream.resume()
+            if (!target || !md5f) {
+                throw createError({ statusCode: 400, statusMessage: 'Missing required files' })
             }
-        })
 
-        bb.on('error', reject)
+            const targetName = target.filename || 'file'
+            const md5FileName = md5f.filename || 'hash.md5'
 
-        bb.on('finish', async () => {
-            try {
-                const expected = extractMd5Hex(md5Text)
-                if (!expected) {
-                    reject(createError({ statusCode: 400, statusMessage: 'MD5 hex not found in md5 file' }))
-                    return
-                }
+            const [{ hash: actual, sizeBytes }, md5Text] = await Promise.all([
+                hashStreamMd5(target.file),
+                readTextStream(md5f.file),
+            ])
 
-                const actual = md5.digestHex()
-                const ok = actual === expected
+            const expected = extractMd5Hex(md5Text)
+            if (!expected) {
+                throw createError({statusCode: 400, statusMessage: 'MD5 hex not found in md5 file'})
+            }
 
-                const base = sanitizeBaseName(targetName)
-                const reportFileName = `md5_verify_${Date.now()}_${base}.txt`
-                const reportPath = join(dir, reportFileName)
+            const ok = actual === expected
 
-                const report = `# MD5 Verify
+            const base = sanitizeBaseName(targetName)
+            const reportFileName = `md5_verify_${Date.now()}_${base}.txt`
+            const reportPath = join(dir, reportFileName)
+
+            const report = `# MD5 Verify
 # Target: ${targetName}
 # Size: ${sizeBytes} bytes
 # MD5 file: ${md5FileName}
@@ -81,21 +80,16 @@ export default defineEventHandler(async (event) => {
 # Generated: ${new Date().toISOString()}
 
 `
-                await writeFile(reportPath, report, 'utf8')
 
-                resolve({
-                    ok,
-                    expected,
-                    actual,
-                    reportFile: `/exports/${basename(reportPath)}`,
-                    reportFileName,
-                })
-            } catch (e) {
-                reject(e)
+            await writeFile(reportPath, report, 'utf8')
+
+            return {
+                ok,
+                expected,
+                actual,
+                reportFile: `/exports/${basename(reportPath)}`,
+                reportFileName,
             }
-        })
+        },
     })
-
-    req.pipe(bb)
-    return await done
 })

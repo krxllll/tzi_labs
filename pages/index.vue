@@ -18,6 +18,11 @@
           Лабораторна робота 2: MD5 (RFC 1321)
         </NuxtLink>
       </li>
+      <li>
+        <NuxtLink to="/lab3/rc5-encrypt" class="text-blue-400 hover:underline">
+          Лабораторна робота 3: RC5-CBC-Pad
+        </NuxtLink>
+      </li>
     </ul>
   </main>
 </template>

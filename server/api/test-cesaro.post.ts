@@ -1,5 +1,5 @@
-import { VARIANT } from '~/lib/variant'
-import { cesaroPiEstimate, lcgPairs, lehmerPairs, systemPairs } from '~/lib/lcg'
+import { LCG_VARIANT } from '~/server/lib/variant'
+import { cesaroPiEstimate, lcgPairs, lehmerPairs, systemPairs } from '~/server/lib/lcg'
 
 type Body = { pairs: number, seed?: number }
 
@@ -11,7 +11,7 @@ export default defineEventHandler(async (event) => {
         throw createError({ statusCode: 413, statusMessage: 'pairs too large' })
     }
 
-    const lcg = cesaroPiEstimate(lcgPairs(pairs, VARIANT.a, VARIANT.c, VARIANT.m, VARIANT.seed))
+    const lcg = cesaroPiEstimate(lcgPairs(pairs, LCG_VARIANT.a, LCG_VARIANT.c, LCG_VARIANT.m, LCG_VARIANT.seed))
     const lehmer = cesaroPiEstimate(lehmerPairs(pairs, seed))
     const system = cesaroPiEstimate(systemPairs(pairs))
 

@@ -1,17 +1,9 @@
-import { md5Hex } from '~/lib/md5'
+import { md5Hex } from '~/server/lib/md5'
 import { writeFile, mkdir } from 'node:fs/promises'
 import { join, basename } from 'node:path'
+import { sanitizeBaseName } from '~/server/utils/sanitizeBaseName'
 
 type Body = { text: string, name?: string }
-
-function sanitizeBaseName(name: string) {
-    const cleaned = name
-        .trim()
-        .replace(/[/\\?%*:|"<>]/g, '_')
-        .replace(/\s+/g, '_')
-
-    return cleaned.replace(/\.(md5|txt)$/i, '') || 'result'
-}
 
 export default defineEventHandler(async (event) => {
     const body = await readBody<Body>(event)

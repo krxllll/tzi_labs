@@ -1,89 +1,68 @@
-import Busboy from 'busboy'
+import { runMultipartOneFile } from '~/server/utils/multipart'
 import { writeFile, mkdir } from 'node:fs/promises'
 import { join, basename } from 'node:path'
-import { MD5 } from '~/lib/md5'
+import { MD5 } from '~/server/lib/md5'
+import { sanitizeBaseName } from '~/server/utils/sanitizeBaseName'
 
-function sanitizeBaseName(name: string) {
-    const cleaned = name
-        .trim()
-        .replace(/[/\\?%*:|"<>]/g, '_')
-        .replace(/\s+/g, '_')
-    return cleaned.replace(/\.(md5|txt)$/i, '') || 'file'
+function hashStreamMd5(stream: NodeJS.ReadableStream) {
+    const md5 = new MD5()
+    let sizeBytes = 0
+
+    return new Promise<{ hash: string; sizeBytes: number }>((resolve, reject) => {
+        stream.on('data', (chunk: Buffer) => {
+            sizeBytes += chunk.length
+            md5.update(chunk)
+        })
+        stream.on('error', reject)
+        stream.on('end', () => {
+            resolve({ hash: md5.digestHex(), sizeBytes })
+        })
+    })
 }
 
 export default defineEventHandler(async (event) => {
-    const req = event.node.req
-    const contentType = req.headers['content-type'] || ''
-    if (!contentType.includes('multipart/form-data')) {
-        throw createError({ statusCode: 400, statusMessage: 'Expected multipart/form-data' })
-    }
+    const { fileUrl, fileName, hash, originalName, sizeBytes } = await runMultipartOneFile(
+        event.node.req,
+        {
+            start: async ({ file, filename }, fields) => {
+                const dir = join(process.cwd(), 'public', 'exports')
+                await mkdir(dir, { recursive: true })
 
-    const dir = join(process.cwd(), 'public', 'exports')
-    await mkdir(dir, { recursive: true })
+                const suggestedName = (fields.name ?? '').trim() || null
+                const originalName = filename || 'file'
 
-    const bb = Busboy({ headers: req.headers })
+                const { hash, sizeBytes } = await hashStreamMd5(file)
 
-    let originalName = 'file'
-    let sizeBytes = 0
-    const md5 = new MD5()
+                const base = sanitizeBaseName(suggestedName ?? originalName)
+                const outName = `md5_file_${Date.now()}_${base}.md5`
+                const outPath = join(dir, outName)
 
-    let suggestedName: string | null = null
-
-    const done = new Promise<any>((resolve, reject) => {
-        bb.on('field', (name, val) => {
-            if (name === 'name') suggestedName = String(val || '').trim() || null
-        })
-
-        bb.on('file', (field, fileStream, info) => {
-            if (field !== 'file') {
-                fileStream.resume()
-                return
-            }
-
-            originalName = info?.filename || 'file'
-
-            fileStream.on('data', (chunk: Buffer) => {
-                sizeBytes += chunk.length
-                md5.update(chunk)
-            })
-
-            fileStream.on('error', reject)
-
-            fileStream.on('end', async () => {
-                try {
-                    const hash = md5.digestHex()
-
-                    const base = sanitizeBaseName(suggestedName ?? originalName)
-                    const fileName = `md5_file_${Date.now()}_${base}.md5`
-                    const filePath = join(dir, fileName)
-
-                    const header = `# MD5 (RFC 1321)
+                const header = `# MD5 (RFC 1321)
 # Type: file
 # Original: ${originalName}
 # Size: ${sizeBytes} bytes
 # Generated: ${new Date().toISOString()}
 
 `
-                    await writeFile(filePath, header + hash + '\n', 'utf8')
 
-                    resolve({
-                        hash,
-                        originalName,
-                        sizeBytes,
-                        file: `/exports/${basename(filePath)}`,
-                        fileName,
-                    })
-                } catch (e) {
-                    reject(e)
+                await writeFile(outPath, header + hash + '\n', 'utf8')
+
+                return {
+                    hash,
+                    originalName,
+                    sizeBytes,
+                    fileUrl: `/exports/${basename(outPath)}`,
+                    fileName: outName,
                 }
-            })
-        })
+            },
+        }
+    )
 
-        bb.on('error', reject)
-        bb.on('finish', () => {
-        })
-    })
-
-    req.pipe(bb)
-    return await done
+    return {
+        hash,
+        originalName,
+        sizeBytes,
+        file: fileUrl,
+        fileName,
+    }
 })

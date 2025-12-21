@@ -13,4 +13,11 @@ export default defineNuxtConfig({
       { name: 'Sansation', provider: 'google' },
     ]
   },
+  nitro: {
+    esbuild: {
+      options: {
+        target: 'es2022',
+      },
+    },
+  },
 })

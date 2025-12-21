@@ -29,8 +29,8 @@ async function onDownload() {
     <Tabs :tabs="tabs" />
     <form class="mt-8 space-y-4" @submit.prevent="onSubmit">
       <div class="space-x-2">
-        <label>Рядок</label>
-        <input v-model="inputText" class="text-gray-800 outline-gray-800 px-2" >
+        <label for="text">Рядок</label>
+        <input id="text" v-model="inputText" class="text-gray-800 outline-gray-800 px-2" >
       </div>
 
       <button

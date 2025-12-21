@@ -32,12 +32,12 @@ async function onDownload() {
     <Tabs :tabs="tabs" />
     <form class="mt-8 space-y-4" @submit.prevent="onSubmit">
       <div class="space-x-2">
-        <label>Файл</label>
-        <input type="file" @change="(e:any) => inputFile = e.target.files?.[0] ?? null" >
+        <label for="file">Файл</label>
+        <input id="file" type="file" @change="(e:any) => inputFile = e.target.files?.[0] ?? null" >
       </div>
       <div class="space-x-2">
-        <label>Файл з MD5</label>
-        <input type="file" @change="(e:any) => inputMd5File = e.target.files?.[0] ?? null" >
+        <label for="md5File">Файл з MD5</label>
+        <input id="md5File" type="file" @change="(e:any) => inputMd5File = e.target.files?.[0] ?? null" >
       </div>
 
       <button

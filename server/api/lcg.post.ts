@@ -1,5 +1,5 @@
-import { VARIANT } from '~/lib/variant'
-import { lcgSequence, lcgPeriod } from '~/lib/lcg'
+import { LCG_VARIANT } from '~/server/lib/variant'
+import { lcgSequence, lcgPeriod } from '~/server/lib/lcg'
 import { writeFile, mkdir } from 'node:fs/promises'
 import { join, basename } from 'node:path'
 
@@ -9,10 +9,10 @@ export default defineEventHandler(async (event) => {
     const body = await readBody<Body>(event)
 
     const count = body.count
-    const m = body.m ?? VARIANT.m
-    const a = body.a ?? VARIANT.a
-    const c = body.c ?? VARIANT.c
-    const seed = body.seed ?? VARIANT.seed
+    const m = body.m ?? LCG_VARIANT.m
+    const a = body.a ?? LCG_VARIANT.a
+    const c = body.c ?? LCG_VARIANT.c
+    const seed = body.seed ?? LCG_VARIANT.seed
 
     if (!Number.isInteger(count) || count <= 0)
         throw createError({ statusCode: 400, statusMessage: 'count must be positive integer' })
