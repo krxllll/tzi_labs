@@ -24,7 +24,7 @@ async function onDownload() {
 
 <template>
   <main class="px-20 py-10">
-    <h1 class="text-4xl font-bold">Лабораторна робота 2: MD5 Хешування Рядка</h1>
+    <h1 class="text-4xl font-bold">Лабораторна робота 2: MD5 Хешування рядка</h1>
 
     <Tabs :tabs="tabs" />
     <form class="mt-8 space-y-4" @submit.prevent="onSubmit">

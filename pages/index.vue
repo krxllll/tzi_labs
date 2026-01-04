@@ -23,6 +23,11 @@
           Лабораторна робота 3: RC5-CBC-Pad
         </NuxtLink>
       </li>
+      <li>
+        <NuxtLink to="/lab4/rsa-keys" class="text-blue-400 hover:underline">
+          Лабораторна робота 4: RSA-AES
+        </NuxtLink>
+      </li>
     </ul>
   </main>
 </template>
