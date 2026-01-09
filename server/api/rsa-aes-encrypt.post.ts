@@ -5,19 +5,30 @@ import { pipeline } from 'node:stream/promises'
 import { mkdir } from 'node:fs/promises'
 import { sanitizeBaseName } from '~/server/utils/sanitizeBaseName'
 import { RsaAesEncryptStream } from '~/server/lib/rsa-aes'
+import { streamToString } from '~/server/utils/cryptoKey'
 
 export default defineEventHandler(async (event) => {
     const { fileUrl, fileName } = await runMultipartFiles(event.node.req, {
-        requiredFiles: ['file', 'key'],
-        start: async ({ files }) => {
+        requiredFiles: ['file'],
+        start: async ({ files, fields }) => {
             const file = files.file
-            const keyFile = files.key
-
             if (!file) throw createError({ statusCode: 400, statusMessage: 'Missing file' })
-            if (!keyFile) throw createError({ statusCode: 400, statusMessage: 'Missing key file' })
 
-            const publicKeyPem = await streamToString(keyFile.file)
-            if (!publicKeyPem.trim()) throw createError({ statusCode: 400, statusMessage: 'Empty public key file' })
+            const keyFile = files.key
+            let publicKeyPem = ''
+
+            if (keyFile) {
+                publicKeyPem = await streamToString(keyFile.file)
+            } else {
+                publicKeyPem = (fields.publicKey ?? '').toString()
+            }
+
+            if (!publicKeyPem.trim()) {
+                throw createError({
+                    statusCode: 400,
+                    statusMessage: 'Provide public key as file (field "key") or text (field "publicKey")',
+                })
+            }
 
             const base = sanitizeBaseName(file.filename)
             const outName = `rsa_aes_enc_${Date.now()}_${base}.bin`
@@ -38,12 +49,3 @@ export default defineEventHandler(async (event) => {
 
     return { file: fileUrl, fileName }
 })
-
-function streamToString(s: NodeJS.ReadableStream): Promise<string> {
-    return new Promise((resolve, reject) => {
-        const chunks: Buffer[] = []
-        s.on('data', (c) => chunks.push(Buffer.from(c)))
-        s.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')))
-        s.on('error', reject)
-    })
-}

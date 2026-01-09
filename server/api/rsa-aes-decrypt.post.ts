@@ -5,31 +5,37 @@ import { pipeline } from 'node:stream/promises'
 import { mkdir } from 'node:fs/promises'
 import { sanitizeBaseName } from '~/server/utils/sanitizeBaseName'
 import { RsaAesDecryptStream } from '~/server/lib/rsa-aes'
+import { streamToString } from '~/server/utils/cryptoKey'
 
 export default defineEventHandler(async (event) => {
     const { fileUrl, fileName } = await runMultipartFiles(event.node.req, {
-        requiredFiles: ['file', 'key'],
-        start: async ({ files }) => {
+        requiredFiles: ['file'],
+        start: async ({ files, fields }) => {
             const file = files.file
-            const keyFile = files.key
-
             if (!file) throw createError({ statusCode: 400, statusMessage: 'Missing file' })
-            if (!keyFile) throw createError({ statusCode: 400, statusMessage: 'Missing key file' })
 
-            const privateKeyPem = await streamToString(keyFile.file)
-            if (!privateKeyPem.trim()) throw createError({ statusCode: 400, statusMessage: 'Empty private key file' })
+            const keyFile = files.key
+            let privateKeyPem = ''
+
+            if (keyFile) {
+                privateKeyPem = await streamToString(keyFile.file)
+            } else {
+                privateKeyPem = (fields.privateKey ?? '').toString()
+            }
+
+            if (!privateKeyPem.trim()) {
+                throw createError({
+                    statusCode: 400,
+                    statusMessage: 'Provide private key as file (field "key") or text (field "privateKey")',
+                })
+            }
 
             const encBase = sanitizeBaseName(file.filename)
 
-            let originalBase = encBase.endsWith('.bin')
-                ? encBase.slice(0, -4)
-                : encBase
-
+            let originalBase = encBase.endsWith('.bin') ? encBase.slice(0, -4) : encBase
             originalBase = originalBase.replace(/^rsa_aes_enc_\d+_/, '') || originalBase
 
-            const finalBase = originalBase.includes('.')
-                ? originalBase
-                : `${originalBase}.txt`
+            const finalBase = originalBase.includes('.') ? originalBase : `${originalBase}.txt`
 
             const outName = `rsa_aes_dec_${Date.now()}_${finalBase}`
 
@@ -49,12 +55,3 @@ export default defineEventHandler(async (event) => {
 
     return { file: fileUrl, fileName }
 })
-
-function streamToString(s: NodeJS.ReadableStream): Promise<string> {
-    return new Promise((resolve, reject) => {
-        const chunks: Buffer[] = []
-        s.on('data', (c) => chunks.push(Buffer.from(c)))
-        s.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')))
-        s.on('error', reject)
-    })
-}

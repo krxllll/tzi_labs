@@ -6,6 +6,7 @@ const links = [
   { label: 'Лабораторна 2', to: '/lab2', href: '/lab2/md5-text' },
   { label: 'Лабораторна 3', to: '/lab3', href: '/lab3/rc5-encrypt' },
   { label: 'Лабораторна 4', to: '/lab4', href: '/lab4/rsa-keys' },
+  { label: 'Лабораторна 5', to: '/lab5', href: '/lab5/dss-keys' },
 ]
 
 function isActive(prefix: string) {

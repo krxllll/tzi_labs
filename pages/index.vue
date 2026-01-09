@@ -28,6 +28,11 @@
           Лабораторна робота 4: RSA-AES
         </NuxtLink>
       </li>
+      <li>
+        <NuxtLink to="/lab5/dss-keys" class="text-blue-400 hover:underline">
+          Лабораторна робота 5: DSS
+        </NuxtLink>
+      </li>
     </ul>
   </main>
 </template>
